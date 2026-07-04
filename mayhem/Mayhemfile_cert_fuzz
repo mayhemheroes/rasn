@@ -1,0 +1,5 @@
+project: rasn
+target: cert_fuzz
+cmds:
+  - cmd: /mayhem/cert_fuzz
+    libfuzzer: true

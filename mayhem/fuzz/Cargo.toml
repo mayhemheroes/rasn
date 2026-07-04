@@ -1,0 +1,22 @@
+[package]
+name = "rasn-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+libfuzzer-sys = "0.4"
+rasn = { path = "../.." }
+rasn-pkix = { path = "../../standards/pkix" }
+
+[[bin]]
+name = "cert_fuzz"
+path = "fuzz_targets/cert_fuzz.rs"
+test = false
+doc = false
+bench = false
+
+[package.metadata]
+cargo-fuzz = true
