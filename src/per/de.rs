@@ -822,6 +822,17 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         let mut octet_string = Vec::new();
         let codec = self.codec();
 
+        // Aligned PER (X.691 §17): fixed-size OCTET STRING with SIZE > 2 is
+        // octet-aligned. The encoder calls pad_to_alignment before the length
+        // determinant, so we must consume that padding here too.
+        if let Some(size) = constraints.size() {
+            if size.constraint.range() == Some(1) && size.constraint.as_start() > Some(&2) {
+                if self.options.aligned {
+                    self.input = self.parse_padding(self.input)?;
+                }
+            }
+        }
+
         self.decode_extensible_container(constraints, |input, length| {
             let (input, part) = nom::bytes::streaming::take(length * 8)(input)
                 .map_err(|e| DecodeError::map_nom_err(e, codec))?;
@@ -854,7 +865,6 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
             bit_string.extend(&*part);
             Ok(input)
         })?;
-
         Ok(bit_string)
     }
 

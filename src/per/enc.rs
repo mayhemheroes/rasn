@@ -1190,17 +1190,15 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
             // to avoid repeated heap allocations.
             let mut reusable_buf = BitString::default();
             let mut reusable_work = BitString::new();
-            let mut first_round = true;
+            let mut cumulative_bits = extension_bits_len;
             for value in &values[range] {
                 let mut encoder = Self::new_with_output(options, reusable_buf);
                 encoder.work = reusable_work;
-                if first_round {
-                    encoder.parent_output_length = Some(extension_bits_len);
-                    first_round = false;
-                }
+                encoder.parent_output_length = Some(cumulative_bits);
                 E::encode(value, &mut encoder)?;
                 reusable_work = core::mem::take(&mut encoder.work);
                 let mut bits = encoder.bitstring_output();
+                cumulative_bits += bits.len();
                 acc.append(&mut bits);
                 reusable_buf = bits;
             }
@@ -1305,7 +1303,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
                 extension_bitfield: (0, [false; EL]),
                 is_extension_sequence: false,
                 extension_fields: [(); EL].map(|_| None),
-                parent_output_length: None,
+                parent_output_length: self.parent_output_length,
             };
             (encoder_scope)(&mut child)?;
             // Move the buffers back; reclaim any grown work allocation from the child.
@@ -1389,7 +1387,8 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
             0
         };
 
-        choice_encoder.parent_output_length = Some(choice_bits_len);
+        let preceding_bits = self.output_length();
+        choice_encoder.parent_output_length = Some(preceding_bits + choice_bits_len);
         let _tag = (encode_fn)(&mut choice_encoder)?;
 
         match (index, bounds) {
